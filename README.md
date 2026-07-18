@@ -33,9 +33,22 @@ time:
 - **Compare view** — overlay two sessions on real wall-clock time (or elapsed time when
   they don't overlap), see per-target deltas for avg/p95/jitter/loss, and get a plain
   verdict on which link is worse and where the degradation appears.
-- **AI analysis export** — one click copies a ready-made prompt plus compact data for both
-  compared sessions; paste it into an AI chat (Claude, ChatGPT, …) to get a self-contained
-  HTML report with charts, spike analysis, and a verdict on where the problem lives.
+- **Deep analysis (built-in)** — a deterministic findings engine computes verified
+  diagnostics for every comparison: spike rates and severity, packet loss, time above
+  latency thresholds, worst continuous stretch, spike periodicity (autocorrelation),
+  burstiness, the provider's share of latency vs. the local link, routing asymmetries,
+  and — when sessions ran simultaneously — whether spikes hit both machines at the same
+  moments (a strong shared-cause signal).
+- **Local AI explanations (optional, private)** — with [Ollama](https://ollama.com)
+  installed, one click has a local model (e.g. `gemma4:e2b`) explain every finding in
+  plain language, rate its confidence, and give prioritized recommendations — rendered
+  natively in the app, no data ever leaves your machine. PingWatch detects Ollama and
+  installed models automatically and can download a recommended model with a progress
+  bar from inside the app.
+- **AI analysis export** — alternatively, one click copies a ready-made prompt plus
+  compact data for both compared sessions; paste it into an AI chat (Claude, ChatGPT, …)
+  to get a self-contained HTML report with charts, spike analysis, and a verdict on
+  where the problem lives.
 - **Saved comparisons** — store a comparison under a name and reload or re-export it later.
 - **Auto-stop** — monitoring stops automatically when the configured window has elapsed
   (toggleable, with a live countdown).

@@ -7,6 +7,7 @@ import type { Sample, Session, TargetStats } from "../lib/types";
 import { fmtDateTime, fmtDuration, fmtMs, fmtPct } from "../lib/format";
 import LiveChart, { type ChartSeries } from "./LiveChart";
 import AiExportModal from "./AiExportModal";
+import AnalysisPanel from "./AnalysisPanel";
 
 const COLOR_A = "#1e96c8";
 const COLOR_B = "#c4741f";
@@ -486,6 +487,8 @@ export default function CompareView() {
               </ul>
             </div>
           )}
+
+          {comparisons.length > 0 && <AnalysisPanel a={a} b={b} />}
         </>
       )}
 
