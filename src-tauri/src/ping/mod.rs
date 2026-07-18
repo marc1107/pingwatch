@@ -44,7 +44,9 @@ mod tests {
     async fn pings_loopback_without_privileges() {
         let outcome = ping_once("127.0.0.1".parse().unwrap(), Duration::from_millis(1000)).await;
         match outcome {
-            PingOutcome::Rtt(rtt) => assert!(rtt >= 0.0 && rtt < 1000.0, "rtt was {rtt}"),
+            PingOutcome::Rtt(rtt) => {
+                assert!((0.0..1000.0).contains(&rtt), "rtt was {rtt}")
+            }
             other => panic!("expected Rtt, got {other:?}"),
         }
     }
