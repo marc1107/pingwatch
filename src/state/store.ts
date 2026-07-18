@@ -237,3 +237,8 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 }));
+
+// Dev-only hook so browser-based UI tests can drive the store directly.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__pingwatchStore = useStore;
+}
