@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useStore, INTERVAL_OPTIONS_MS, WINDOW_OPTIONS_MIN } from "../state/store";
 
 const THRESHOLD_OPTIONS_MS = [50, 100, 150, 200];
@@ -11,14 +12,51 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** Local 1 s ticker so the countdown re-renders on its own without touching global state. */
+function AutoStopCountdown() {
+  const startedUtcMs = useStore((s) => s.startedUtcMs);
+  const windowMin = useStore((s) => s.windowMin);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (startedUtcMs === null) return null;
+  const remainingMs = Math.max(0, windowMin * 60_000 - (now - startedUtcMs));
+  const totalSec = Math.ceil(remainingMs / 1000);
+  const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+  const ss = String(totalSec % 60).padStart(2, "0");
+
+  return (
+    <span
+      className="font-mono text-xs text-ink-3"
+      title="Stops automatically when the window duration has elapsed"
+    >
+      stops in {mm}:{ss}
+    </span>
+  );
+}
+
 export default function ControlBar() {
   const running = useStore((s) => s.running);
   const intervalMs = useStore((s) => s.intervalMs);
   const windowMin = useStore((s) => s.windowMin);
   const spikeThresholdMs = useStore((s) => s.spikeThresholdMs);
+  const autoStopEnabled = useStore((s) => s.autoStopEnabled);
   const startedUtcMs = useStore((s) => s.startedUtcMs);
-  const { start, stop, clearData, setIntervalMs, setWindowMin, setSpikeThresholdMs, exportCurrent, importFile } =
-    useStore.getState();
+  const {
+    start,
+    stop,
+    clearData,
+    setIntervalMs,
+    setWindowMin,
+    setSpikeThresholdMs,
+    setAutoStopEnabled,
+    exportCurrent,
+    importFile,
+  } = useStore.getState();
 
   return (
     <div className="card card-enter flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3">
@@ -63,6 +101,20 @@ export default function ControlBar() {
           ))}
         </select>
       </Field>
+
+      <label
+        className="flex items-center gap-1.5 text-[0.68rem] text-ink-2"
+        title="Stop automatically when the window duration has elapsed"
+      >
+        <input
+          type="checkbox"
+          checked={autoStopEnabled}
+          onChange={(e) => setAutoStopEnabled(e.target.checked)}
+        />
+        Auto-stop
+      </label>
+
+      {running && autoStopEnabled && <AutoStopCountdown />}
 
       <Field label="Spike >">
         <select value={spikeThresholdMs} onChange={(e) => setSpikeThresholdMs(Number(e.target.value))}>

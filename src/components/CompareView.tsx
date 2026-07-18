@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../state/store";
 import { alignSessions } from "../lib/align";
 import { computeStats } from "../lib/stats";
@@ -141,6 +141,107 @@ function verdict(comparisons: AddressComparison[], a: Session, b: Session): stri
   return lines;
 }
 
+function SavedComparisonControls({ a, b }: { a: Session | null; b: Session | null }) {
+  const importedSessions = useStore((s) => s.importedSessions);
+  const savedComparisons = useStore((s) => s.savedComparisons);
+  const { refreshSavedComparisons, saveCurrentComparison, loadSavedComparison, deleteSavedComparison } =
+    useStore.getState();
+
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+
+  useEffect(() => {
+    void refreshSavedComparisons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function startEditing() {
+    const labelA = a?.device.connectionLabel || "A";
+    const labelB = b?.device.connectionLabel || "B";
+    setName(`${labelA} vs ${labelB} — ${fmtDateTime(Date.now())}`);
+    setEditing(true);
+  }
+
+  async function confirm() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await saveCurrentComparison(trimmed);
+    setEditing(false);
+    const latest = useStore.getState().savedComparisons[0];
+    if (latest) setSelectedId(latest.id);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-[0.68rem] uppercase tracking-[0.12em] text-ink-3">Comparisons</span>
+      {editing ? (
+        <>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-64"
+            autoFocus
+          />
+          <button
+            onClick={() => void confirm()}
+            className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink"
+          >
+            Confirm
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-3 transition-colors hover:border-bad hover:text-bad"
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={startEditing}
+          disabled={importedSessions.length < 1}
+          title={
+            importedSessions.length < 1
+              ? "Import at least one session first"
+              : "Save the currently imported sessions as a named comparison"
+          }
+          className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save
+        </button>
+      )}
+
+      <select
+        value={selectedId}
+        onChange={(e) => {
+          setSelectedId(e.target.value);
+          if (e.target.value) void loadSavedComparison(e.target.value);
+        }}
+      >
+        <option value="">Saved…</option>
+        {savedComparisons.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name} · {fmtDateTime(c.savedUtcMs)}
+          </option>
+        ))}
+      </select>
+      {selectedId && (
+        <button
+          onClick={() => {
+            void deleteSavedComparison(selectedId);
+            setSelectedId("");
+          }}
+          title="Delete this saved comparison"
+          className="rounded-lg border border-line-2 px-2 py-1.5 text-xs text-ink-3 transition-colors hover:border-bad hover:text-bad"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function CompareView() {
   const importedSessions = useStore((s) => s.importedSessions);
   const startedUtcMs = useStore((s) => s.startedUtcMs);
@@ -233,42 +334,48 @@ export default function CompareView() {
 
   return (
     <div className="space-y-4">
-      <div className="card card-enter flex flex-wrap items-center gap-3 px-4 py-3">
-        <span className="text-[0.68rem] uppercase tracking-[0.12em] text-ink-3">Sessions</span>
-        <select value={a?.id ?? ""} onChange={(e) => setIdA(e.target.value)}>
-          {pool.map((s) => (
-            <option key={s.id} value={s.id}>
-              {sessionTitle(s)}
-            </option>
-          ))}
-        </select>
-        <span className="text-ink-3">vs</span>
-        <select value={b?.id ?? ""} onChange={(e) => setIdB(e.target.value)} disabled={pool.length < 2}>
-          {pool
-            .filter((s) => s.id !== a?.id)
-            .map((s) => (
+      <div className="card card-enter flex flex-col gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[0.68rem] uppercase tracking-[0.12em] text-ink-3">Sessions</span>
+          <select value={a?.id ?? ""} onChange={(e) => setIdA(e.target.value)}>
+            {pool.map((s) => (
               <option key={s.id} value={s.id}>
                 {sessionTitle(s)}
               </option>
             ))}
-        </select>
-        <div className="ml-auto flex gap-2">
-          <button
-            onClick={() => importFile()}
-            className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink"
-          >
-            Import…
-          </button>
-          {importedSessions.map((s) => (
+          </select>
+          <span className="text-ink-3">vs</span>
+          <select value={b?.id ?? ""} onChange={(e) => setIdB(e.target.value)} disabled={pool.length < 2}>
+            {pool
+              .filter((s) => s.id !== a?.id)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {sessionTitle(s)}
+                </option>
+              ))}
+          </select>
+          <div className="ml-auto flex gap-2">
             <button
-              key={s.id}
-              onClick={() => removeImported(s.id)}
-              className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-3 transition-colors hover:border-bad hover:text-bad"
-              title={`Remove ${sessionTitle(s)}`}
+              onClick={() => importFile()}
+              className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink"
             >
-              ✕ {s.device.connectionLabel}
+              Import…
             </button>
-          ))}
+            {importedSessions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => removeImported(s.id)}
+                className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-3 transition-colors hover:border-bad hover:text-bad"
+                title={`Remove ${sessionTitle(s)}`}
+              >
+                ✕ {s.device.connectionLabel}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-line/60 pt-3">
+          <SavedComparisonControls a={a} b={b} />
         </div>
       </div>
 

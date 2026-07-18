@@ -2,8 +2,29 @@
 // developed and tested without a native shell. Produces plausible latency
 // traces: a quiet wired-like target, a noisy one with periodic spikes, and
 // occasional packet loss.
-import type { Ipc } from "./ipc";
+import type { ComparisonMeta, Ipc } from "./ipc";
 import type { Sample, Session, Target } from "./types";
+
+const COMPARISONS_KEY = "pingwatch-comparisons";
+
+interface StoredComparison {
+  meta: ComparisonMeta;
+  sessions: Session[];
+}
+
+function readComparisons(): StoredComparison[] {
+  try {
+    const raw = localStorage.getItem(COMPARISONS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as StoredComparison[];
+  } catch {
+    return [];
+  }
+}
+
+function writeComparisons(entries: StoredComparison[]) {
+  localStorage.setItem(COMPARISONS_KEY, JSON.stringify(entries));
+}
 
 interface MockProfile {
   base: number;
@@ -111,5 +132,33 @@ export const mockIpc: Ipc = {
       input.oncancel = () => resolve(null);
       input.click();
     });
+  },
+
+  async saveComparison(name, sessions) {
+    const meta: ComparisonMeta = {
+      id: crypto.randomUUID().slice(0, 8),
+      name,
+      savedUtcMs: Date.now(),
+    };
+    const entries = readComparisons();
+    entries.push({ meta, sessions });
+    writeComparisons(entries);
+    return meta;
+  },
+
+  async listComparisons() {
+    return readComparisons()
+      .map((e) => e.meta)
+      .sort((a, b) => b.savedUtcMs - a.savedUtcMs);
+  },
+
+  async loadComparison(id) {
+    const entry = readComparisons().find((e) => e.meta.id === id);
+    if (!entry) throw new Error(`no saved comparison with id ${id}`);
+    return entry.sessions;
+  },
+
+  async deleteComparison(id) {
+    writeComparisons(readComparisons().filter((e) => e.meta.id !== id));
   },
 };

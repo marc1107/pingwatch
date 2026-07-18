@@ -20,6 +20,10 @@ pub fn run() {
             commands::validate_target,
             commands::export_session,
             commands::import_session,
+            commands::save_comparison,
+            commands::list_comparisons,
+            commands::load_comparison,
+            commands::delete_comparison,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { getIpc, type AppDefaults } from "../lib/ipc";
+import { getIpc, type AppDefaults, type ComparisonMeta } from "../lib/ipc";
 import { SCHEMA_VERSION, type Sample, type Session, type Target } from "../lib/types";
 
 export const INTERVAL_OPTIONS_MS = [250, 500, 1000, 2000, 5000] as const;
@@ -12,6 +12,26 @@ export const DEFAULT_SPIKE_THRESHOLD_MS = 100;
 const MAX_WINDOW_MIN = 60;
 
 let unlisten: (() => void) | null = null;
+let autoStopTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearAutoStopTimer() {
+  if (autoStopTimer !== null) {
+    clearTimeout(autoStopTimer);
+    autoStopTimer = null;
+  }
+}
+
+/** (Re)schedules the auto-stop timer from the current remaining budget, or clears it if disabled/exhausted. */
+function scheduleAutoStop(get: () => AppState) {
+  clearAutoStopTimer();
+  const { autoStopEnabled, windowMin, startedUtcMs, running } = get();
+  if (!autoStopEnabled || !running || startedUtcMs === null) return;
+  const remainingMs = windowMin * 60_000 - (Date.now() - startedUtcMs);
+  if (remainingMs <= 0) return;
+  autoStopTimer = setTimeout(() => {
+    void get().stop();
+  }, remainingMs);
+}
 
 interface AppState {
   defaults: AppDefaults | null;
@@ -21,11 +41,13 @@ interface AppState {
   windowMin: number;
   spikeThresholdMs: number;
   autoUpdateEnabled: boolean;
+  autoStopEnabled: boolean;
   targets: Target[];
   running: boolean;
   startedUtcMs: number | null;
   samplesByTarget: Record<string, Sample[]>;
   importedSessions: Session[];
+  savedComparisons: ComparisonMeta[];
   view: "live" | "compare";
   error: string | null;
 
@@ -39,6 +61,7 @@ interface AppState {
   setWindowMin(min: number): void;
   setSpikeThresholdMs(ms: number): void;
   setAutoUpdateEnabled(enabled: boolean): void;
+  setAutoStopEnabled(enabled: boolean): void;
   setConnectionLabel(label: string): void;
   setView(view: "live" | "compare"): void;
   setError(error: string | null): void;
@@ -46,6 +69,10 @@ interface AppState {
   exportCurrent(): Promise<void>;
   importFile(): Promise<void>;
   removeImported(id: string): void;
+  refreshSavedComparisons(): Promise<void>;
+  saveCurrentComparison(name: string): Promise<void>;
+  loadSavedComparison(id: string): Promise<void>;
+  deleteSavedComparison(id: string): Promise<void>;
 }
 
 function defaultTargets(gatewayIp: string | null): Target[] {
@@ -70,11 +97,13 @@ export const useStore = create<AppState>()(
       windowMin: DEFAULT_WINDOW_MIN,
       spikeThresholdMs: DEFAULT_SPIKE_THRESHOLD_MS,
       autoUpdateEnabled: true,
+      autoStopEnabled: true,
       targets: [],
       running: false,
       startedUtcMs: null,
       samplesByTarget: {},
       importedSessions: [],
+      savedComparisons: [],
       view: "live",
       error: null,
 
@@ -111,6 +140,7 @@ export const useStore = create<AppState>()(
             error: null,
             startedUtcMs: state.startedUtcMs ?? Date.now(),
           }));
+          scheduleAutoStop(get);
         } catch (e) {
           unlisten?.();
           unlisten = null;
@@ -125,6 +155,7 @@ export const useStore = create<AppState>()(
         } finally {
           unlisten?.();
           unlisten = null;
+          clearAutoStopTimer();
           set({ running: false });
         }
       },
@@ -165,12 +196,17 @@ export const useStore = create<AppState>()(
       },
       setWindowMin(windowMin) {
         set({ windowMin });
+        scheduleAutoStop(get);
       },
       setSpikeThresholdMs(spikeThresholdMs) {
         set({ spikeThresholdMs });
       },
       setAutoUpdateEnabled(autoUpdateEnabled) {
         set({ autoUpdateEnabled });
+      },
+      setAutoStopEnabled(autoStopEnabled) {
+        set({ autoStopEnabled });
+        scheduleAutoStop(get);
       },
       setConnectionLabel(connectionLabel) {
         set({ connectionLabel });
@@ -245,11 +281,57 @@ export const useStore = create<AppState>()(
           importedSessions: state.importedSessions.filter((s) => s.id !== id),
         }));
       },
+
+      async refreshSavedComparisons() {
+        try {
+          const ipc = await getIpc();
+          const savedComparisons = await ipc.listComparisons();
+          set({ savedComparisons });
+        } catch (e) {
+          set({ error: `failed to load saved comparisons: ${e}` });
+        }
+      },
+
+      async saveCurrentComparison(name) {
+        const { importedSessions } = get();
+        if (importedSessions.length < 1) {
+          set({ error: "import at least one session before saving a comparison" });
+          return;
+        }
+        try {
+          const ipc = await getIpc();
+          await ipc.saveComparison(name, importedSessions);
+          await get().refreshSavedComparisons();
+        } catch (e) {
+          set({ error: `failed to save comparison: ${e}` });
+        }
+      },
+
+      async loadSavedComparison(id) {
+        try {
+          const ipc = await getIpc();
+          const sessions = await ipc.loadComparison(id);
+          set({ importedSessions: sessions, view: "compare", error: null });
+        } catch (e) {
+          set({ error: `failed to load comparison: ${e}` });
+        }
+      },
+
+      async deleteSavedComparison(id) {
+        try {
+          const ipc = await getIpc();
+          await ipc.deleteComparison(id);
+          await get().refreshSavedComparisons();
+        } catch (e) {
+          set({ error: `failed to delete comparison: ${e}` });
+        }
+      },
     }),
     {
       name: "pingwatch-settings",
       partialize: (state) => ({
         autoUpdateEnabled: state.autoUpdateEnabled,
+        autoStopEnabled: state.autoStopEnabled,
         connectionLabel: state.connectionLabel,
         intervalMs: state.intervalMs,
         windowMin: state.windowMin,
