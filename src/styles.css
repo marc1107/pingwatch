@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #070b0e;
+  --color-surface: #0b1116;
+  --color-surface-2: #10181f;
+  --color-surface-3: #16212b;
+  --color-line: #1a242d;
+  --color-line-2: #24313d;
+  --color-ink: #e6edf3;
+  --color-ink-2: #8fa1b3;
+  --color-ink-3: #5a6b7b;
+  --color-accent: #1e96c8;
+  --color-accent-bright: #3db4e8;
+  --color-good: #34b26b;
+  --color-warn: #d5a021;
+  --color-bad: #e5484d;
+
+  --font-display: "Bricolage Grotesque", "Avenir Next", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1100px 500px at 75% -10%, rgba(30, 150, 200, 0.09), transparent 60%),
+    radial-gradient(800px 420px at -5% 100%, rgba(149, 86, 219, 0.05), transparent 55%),
+    var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  overflow-x: hidden;
+}
+
+/* Faint instrument-grid texture over the whole app. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(143, 161, 179, 0.025) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, rgba(143, 161, 179, 0.02) 0 1px, transparent 1px 44px);
+  z-index: 0;
+}
+
+.font-mono {
+  font-feature-settings: "tnum";
+}
+
+.card {
+  background: linear-gradient(180deg, var(--color-surface-2), var(--color-surface));
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.card-enter {
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(229, 72, 77, 0);
+  }
+}
+
+.recording-dot {
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+
+select,
+input[type="text"] {
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-line-2);
+  border-radius: 8px;
+  color: var(--color-ink);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+select:focus,
+input[type="text"]:focus {
+  border-color: var(--color-accent);
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='%238fa1b3' d='M0 0h8L4 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  padding-right: 1.5rem;
+}
+
+/* uPlot restyle: recessive axes, no default frame */
+.uplot {
+  font-family: var(--font-mono) !important;
+}
+
+.u-select {
+  background: rgba(30, 150, 200, 0.12);
+}
+
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 20;
+  background: rgba(11, 17, 22, 0.94);
+  border: 1px solid var(--color-line-2);
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  min-width: 148px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-2);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

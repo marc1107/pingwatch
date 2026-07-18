@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+coverage/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.local
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Vite cache
+.vite/
