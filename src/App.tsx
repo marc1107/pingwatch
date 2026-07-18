@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "./state/store";
 import Dashboard from "./components/Dashboard";
 import CompareView from "./components/CompareView";
+import UpdateBanner from "./components/UpdateBanner";
 
 function Logo() {
   return (
@@ -16,6 +17,58 @@ function Logo() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function SettingsPopover() {
+  const autoUpdateEnabled = useStore((s) => s.autoUpdateEnabled);
+  const { setAutoUpdateEnabled } = useStore.getState();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="Settings"
+        className="flex size-7 items-center justify-center rounded-lg text-ink-3 transition-colors hover:text-ink"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 15a3 3 0 100-6 3 3 0 000 6z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"
+          />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-20 w-56 rounded-lg border border-line-2 bg-surface-2 p-3 shadow-2xl">
+          <label className="flex items-start gap-2 text-[0.78rem] text-ink-2">
+            <input
+              type="checkbox"
+              checked={autoUpdateEnabled}
+              onChange={(e) => setAutoUpdateEnabled(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>Check for updates automatically</span>
+          </label>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -77,7 +130,11 @@ export default function App() {
             title="Label stored in exported sessions so you can tell machines apart"
           />
         </label>
+
+        <SettingsPopover />
       </header>
+
+      <UpdateBanner />
 
       <main className="min-h-0 flex-1 overflow-y-auto pb-2">
         {view === "live" ? <Dashboard /> : <CompareView />}
