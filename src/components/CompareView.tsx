@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../state/store";
 import { alignSessions } from "../lib/align";
 import { computeStats } from "../lib/stats";
+import { buildAiExport } from "../lib/aiExport";
 import type { Sample, Session, TargetStats } from "../lib/types";
 import { fmtDateTime, fmtDuration, fmtMs, fmtPct } from "../lib/format";
 import LiveChart, { type ChartSeries } from "./LiveChart";
+import AiExportModal from "./AiExportModal";
 
 const COLOR_A = "#1e96c8";
 const COLOR_B = "#c4741f";
@@ -267,8 +269,11 @@ export default function CompareView() {
 
   const [idA, setIdA] = useState<string | null>(null);
   const [idB, setIdB] = useState<string | null>(null);
+  const [aiExportOpen, setAiExportOpen] = useState(false);
   const a = pool.find((s) => s.id === idA) ?? pool[0] ?? null;
   const b = pool.find((s) => s.id === idB && s.id !== a?.id) ?? pool.find((s) => s.id !== a?.id) ?? null;
+
+  const aiExportText = useMemo(() => (a && b ? buildAiExport(a, b) : null), [a, b]);
 
   const aligned = useMemo(() => (a && b ? alignSessions(a, b, 1000) : null), [a, b]);
 
@@ -360,6 +365,14 @@ export default function CompareView() {
               className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink"
             >
               Import…
+            </button>
+            <button
+              onClick={() => setAiExportOpen(true)}
+              disabled={!a || !b}
+              title={!a || !b ? "Select two sessions to compare first" : "Export both sessions as an AI-ready analysis prompt"}
+              className="rounded-lg border border-line-2 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Export for AI…
             </button>
             {importedSessions.map((s) => (
               <button
@@ -474,6 +487,10 @@ export default function CompareView() {
             </div>
           )}
         </>
+      )}
+
+      {aiExportOpen && aiExportText && (
+        <AiExportModal text={aiExportText} onClose={() => setAiExportOpen(false)} />
       )}
     </div>
   );

@@ -33,6 +33,14 @@ time:
 - **Compare view** — overlay two sessions on real wall-clock time (or elapsed time when
   they don't overlap), see per-target deltas for avg/p95/jitter/loss, and get a plain
   verdict on which link is worse and where the degradation appears.
+- **AI analysis export** — one click copies a ready-made prompt plus compact data for both
+  compared sessions; paste it into an AI chat (Claude, ChatGPT, …) to get a self-contained
+  HTML report with charts, spike analysis, and a verdict on where the problem lives.
+- **Saved comparisons** — store a comparison under a name and reload or re-export it later.
+- **Auto-stop** — monitoring stops automatically when the configured window has elapsed
+  (toggleable, with a live countdown).
+- **Auto-update** — the app checks GitHub releases on launch and installs updates
+  automatically (enabled by default, can be turned off in settings).
 - **No admin rights needed** — ICMP pings work unprivileged on both macOS and Windows.
 
 ## Install
