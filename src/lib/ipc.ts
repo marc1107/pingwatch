@@ -12,6 +12,26 @@ export interface ComparisonMeta {
   savedUtcMs: number;
 }
 
+export interface OllamaModel {
+  name: string;
+  sizeBytes: number;
+  parameterSize: string | null;
+}
+
+export interface OllamaStatus {
+  reachable: boolean;
+  version: string | null;
+  binaryInstalled: boolean;
+  models: OllamaModel[];
+}
+
+export interface OllamaPullProgress {
+  model: string;
+  status: string;
+  completed: number | null;
+  total: number | null;
+}
+
 export interface Ipc {
   getDefaults(): Promise<AppDefaults>;
   startMonitoring(targets: Target[], intervalMs: number, timeoutMs: number): Promise<void>;
@@ -26,6 +46,17 @@ export interface Ipc {
   listComparisons(): Promise<ComparisonMeta[]>;
   loadComparison(id: string): Promise<Session[]>;
   deleteComparison(id: string): Promise<void>;
+  ollamaStatus(): Promise<OllamaStatus>;
+  ollamaPull(model: string, onProgress: (progress: OllamaPullProgress) => void): Promise<void>;
+  ollamaGenerate(
+    requestId: string,
+    model: string,
+    prompt: string,
+    formatSchema: unknown,
+    onChunk: (text: string) => void,
+  ): Promise<string>;
+  ollamaCancel(requestId: string): Promise<void>;
+  openExternal(url: string): Promise<void>;
 }
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -70,6 +101,41 @@ async function tauriIpc(): Promise<Ipc> {
       return SessionSchema.array().parse(raw);
     },
     deleteComparison: (id) => invoke("delete_comparison", { id }),
+    ollamaStatus: () => invoke<OllamaStatus>("ollama_status"),
+    ollamaPull: async (model, onProgress) => {
+      const unlisten = await listen<OllamaPullProgress>("ollama-pull-progress", (event) => {
+        if (event.payload.model === model) onProgress(event.payload);
+      });
+      try {
+        await invoke("ollama_pull", { model });
+      } finally {
+        unlisten();
+      }
+    },
+    ollamaGenerate: async (requestId, model, prompt, formatSchema, onChunk) => {
+      const unlisten = await listen<{ requestId: string; content: string; done: boolean }>(
+        "ollama-generate-chunk",
+        (event) => {
+          if (event.payload.requestId !== requestId) return;
+          if (!event.payload.done) onChunk(event.payload.content);
+        },
+      );
+      try {
+        return await invoke<string>("ollama_generate", {
+          requestId,
+          model,
+          prompt,
+          formatSchema,
+        });
+      } finally {
+        unlisten();
+      }
+    },
+    ollamaCancel: (requestId) => invoke("ollama_cancel", { requestId }),
+    openExternal: async (url) => {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl(url);
+    },
   };
 }
 

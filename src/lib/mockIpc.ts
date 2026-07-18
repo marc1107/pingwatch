@@ -2,7 +2,7 @@
 // developed and tested without a native shell. Produces plausible latency
 // traces: a quiet wired-like target, a noisy one with periodic spikes, and
 // occasional packet loss.
-import type { ComparisonMeta, Ipc } from "./ipc";
+import type { ComparisonMeta, Ipc, OllamaPullProgress, OllamaStatus } from "./ipc";
 import type { Sample, Session, Target } from "./types";
 
 const COMPARISONS_KEY = "pingwatch-comparisons";
@@ -160,5 +160,66 @@ export const mockIpc: Ipc = {
 
   async deleteComparison(id) {
     writeComparisons(readComparisons().filter((e) => e.meta.id !== id));
+  },
+
+  async ollamaStatus(): Promise<OllamaStatus> {
+    return {
+      reachable: true,
+      version: "0.5.4",
+      binaryInstalled: true,
+      models: [{ name: "gemma3:4b", sizeBytes: 3_300_000_000, parameterSize: "4.3B" }],
+    };
+  },
+
+  async ollamaPull(model, onProgress) {
+    const total = 3_300_000_000;
+    const steps = [
+      { status: "pulling manifest", completed: null, total: null },
+      { status: "pulling", completed: Math.round(total * 0.3), total },
+      { status: "pulling", completed: Math.round(total * 0.7), total },
+      { status: "verifying digest", completed: total, total },
+      { status: "success", completed: total, total },
+    ];
+    for (const step of steps) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const progress: OllamaPullProgress = { model, ...step };
+      onProgress(progress);
+    }
+  },
+
+  async ollamaGenerate(_requestId, _model, prompt, _formatSchema, onChunk) {
+    const ids = Array.from(prompt.matchAll(/"id":"([^"]+)"/g)).map((m) => m[1]);
+    const explanationIds = ids.length > 0 ? ids : ["finding-1"];
+
+    const chunks = [
+      "Analyzing recent latency samples ",
+      "across the monitored targets ",
+      "to summarize what changed.",
+    ];
+    for (const chunk of chunks) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      onChunk(chunk);
+    }
+
+    const result = {
+      summary: "Latency stayed within normal range with a brief spike on one target.",
+      confidence: "medium",
+      explanations: explanationIds.map((id) => ({
+        id,
+        text: `Finding ${id} looks consistent with typical network jitter rather than a persistent issue.`,
+      })),
+      recommendations: [
+        { priority: 1, text: "Keep monitoring; no action needed unless the pattern repeats." },
+      ],
+    };
+    return JSON.stringify(result);
+  },
+
+  async ollamaCancel(_requestId) {
+    // no-op: the mock's simulated pull/generate loops are not cancellable.
+  },
+
+  async openExternal(url) {
+    window.open(url, "_blank", "noopener,noreferrer");
   },
 };
